@@ -1,5 +1,6 @@
 """Tests for browser-backed Atlassian authentication helpers."""
 
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +15,8 @@ from mcp_atlassian.utils.playwright_auth import (
     PlaywrightLoginConfig,
     _is_post_login_atlassian_page,
     build_login_url,
+    clear_playwright_session_cache,
+    get_playwright_session,
     login_with_playwright,
 )
 
@@ -126,7 +129,7 @@ def test_jira_client_uses_browser_session() -> None:
     with (
         patch("mcp_atlassian.jira.client.Jira") as jira_class,
         patch(
-            "mcp_atlassian.jira.client.login_with_playwright",
+            "mcp_atlassian.jira.client.get_playwright_session",
             return_value=browser_session,
         ) as login,
         patch("mcp_atlassian.jira.client.configure_ssl_verification"),
@@ -159,7 +162,7 @@ def test_confluence_client_uses_browser_session() -> None:
     with (
         patch("mcp_atlassian.confluence.client.Confluence") as confluence_class,
         patch(
-            "mcp_atlassian.confluence.client.login_with_playwright",
+            "mcp_atlassian.confluence.client.get_playwright_session",
             return_value=browser_session,
         ) as login,
         patch("mcp_atlassian.confluence.client.configure_ssl_verification"),
@@ -189,3 +192,81 @@ def test_confluence_client_uses_browser_session() -> None:
 )
 def test_is_post_login_atlassian_page(url: str, expected: bool) -> None:  # noqa: FBT001
     assert _is_post_login_atlassian_page(url) is expected
+
+
+@pytest.fixture
+def clean_session_cache() -> Iterator[None]:
+    clear_playwright_session_cache()
+    yield
+    clear_playwright_session_cache()
+
+
+def _login_config(password: str = "secret") -> PlaywrightLoginConfig:
+    return PlaywrightLoginConfig(
+        username="user@example.com",
+        password=password,
+        service_url="https://example.atlassian.net",
+        connection="connection-id",
+        application="application-id",
+        org_id="org-id",
+    )
+
+
+def _browser_session(token: str) -> Session:
+    session = Session()
+    session.cookies.set("cloud.session.token", token, domain=".atlassian.net")
+    return session
+
+
+@pytest.mark.usefixtures("clean_session_cache")
+def test_get_playwright_session_reuses_valid_cached_cookies() -> None:
+    config = _login_config()
+    with (
+        patch(
+            "mcp_atlassian.utils.playwright_auth.login_with_playwright",
+            return_value=_browser_session("first"),
+        ) as login,
+        patch.object(Session, "get") as session_get,
+    ):
+        session_get.return_value.status_code = 200
+        first = get_playwright_session(config)
+        second = get_playwright_session(config)
+
+    login.assert_called_once()
+    assert first is not second
+    assert second.cookies.get("cloud.session.token") == "first"
+    session_get.assert_called_once()
+    assert session_get.call_args.args[0] == (
+        "https://example.atlassian.net/rest/api/3/myself"
+    )
+    assert session_get.call_args.kwargs["allow_redirects"] is False
+
+
+@pytest.mark.usefixtures("clean_session_cache")
+def test_get_playwright_session_logs_in_again_when_cookies_expire() -> None:
+    config = _login_config()
+    with (
+        patch(
+            "mcp_atlassian.utils.playwright_auth.login_with_playwright",
+            side_effect=[_browser_session("first"), _browser_session("second")],
+        ) as login,
+        patch.object(Session, "get") as session_get,
+    ):
+        session_get.return_value.status_code = 302
+        get_playwright_session(config)
+        refreshed = get_playwright_session(config)
+
+    assert login.call_count == 2
+    assert refreshed.cookies.get("cloud.session.token") == "second"
+
+
+@pytest.mark.usefixtures("clean_session_cache")
+def test_get_playwright_session_separates_credentials() -> None:
+    with patch(
+        "mcp_atlassian.utils.playwright_auth.login_with_playwright",
+        side_effect=[_browser_session("first"), _browser_session("second")],
+    ) as login:
+        get_playwright_session(_login_config("first-password"))
+        get_playwright_session(_login_config("second-password"))
+
+    assert login.call_count == 2

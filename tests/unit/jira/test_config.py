@@ -55,6 +55,30 @@ def test_from_env_playwright_auth_maps_saml_settings():
     assert config.is_auth_configured() is True
 
 
+def test_from_env_playwright_empty_overrides_use_shared_sso_settings():
+    with patch.dict(
+        os.environ,
+        {
+            "JIRA_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "user@example.com",
+            "JIRA_PASSWORD": "password",
+            "JIRA_PLAYWRIGHT_CONNECTION": "",
+            "JIRA_PLAYWRIGHT_LOGIN_URL": "",
+            "ATLASSIAN_SSO_CONNECTION": "shared-connection",
+            "ATLASSIAN_SSO_APPLICATION": "shared-application",
+            "ATLASSIAN_SSO_ORG_ID": "shared-org",
+        },
+        clear=True,
+    ):
+        config = JiraConfig.from_env()
+
+    assert config.auth_type == "playwright"
+    assert config.playwright_login_url is None
+    assert config.playwright_connection == "shared-connection"
+    assert config.playwright_application == "shared-application"
+    assert config.playwright_org_id == "shared-org"
+
+
 def test_from_env_token_auth():
     """Test that from_env correctly loads token auth configuration."""
     with patch.dict(
