@@ -23,6 +23,11 @@ from mcp_atlassian.utils.logging import (
     mask_sensitive,
 )
 from mcp_atlassian.utils.oauth import configure_oauth_session
+from mcp_atlassian.utils.playwright_auth import (
+    PlaywrightAuthenticationError,
+    PlaywrightLoginConfig,
+    login_with_playwright,
+)
 from mcp_atlassian.utils.proxy import apply_proxy_configuration
 from mcp_atlassian.utils.ssl import configure_ssl_verification
 from mcp_atlassian.utils.ssrf_adapter import mount_ssrf_pinning
@@ -142,6 +147,33 @@ class JiraClient:
             )
             # Ensure no Authorization header is carried over from defaults
             self.jira._session.headers.pop("Authorization", None)
+        elif self.config.auth_type == "playwright":
+            if not self.config.username or not self.config.password:
+                raise PlaywrightAuthenticationError(
+                    "Playwright authentication requires a username and password."
+                )
+            session = login_with_playwright(
+                PlaywrightLoginConfig(
+                    username=self.config.username,
+                    password=self.config.password,
+                    service_url=self.config.url,
+                    login_url=self.config.playwright_login_url,
+                    connection=self.config.playwright_connection,
+                    application=self.config.playwright_application,
+                    org_id=self.config.playwright_org_id,
+                    service="jira",
+                    timeout_seconds=self.config.timeout,
+                )
+            )
+            session.trust_env = False
+            session.headers.pop("Authorization", None)
+            self.jira = Jira(
+                url=self.config.url,
+                session=session,
+                cloud=self.config.is_cloud,
+                verify_ssl=self.config.ssl_verify,
+                timeout=self.config.timeout,
+            )
         else:  # basic auth
             logger.debug(
                 f"Initializing Jira client with Basic auth. "
@@ -164,7 +196,7 @@ class JiraClient:
 
         # Disable trust_env for PAT and OAuth to prevent .netrc from overriding
         # explicit credentials (#860). Basic auth can safely use .netrc.
-        if self.config.auth_type in ("pat", "oauth"):
+        if self.config.auth_type in ("pat", "oauth", "playwright"):
             self.jira._session.trust_env = False
 
         if self.config.no_proxy and isinstance(self.config.no_proxy, str):

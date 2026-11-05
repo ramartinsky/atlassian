@@ -16,6 +16,7 @@ from ..utils.oauth import (
     OAuthConfig,
     get_oauth_config_from_env,
 )
+from ..utils.playwright_auth import build_login_url
 from ..utils.proxy import get_proxy_settings_from_env
 from ..utils.urls import is_atlassian_cloud_url
 
@@ -25,18 +26,23 @@ class ConfluenceConfig:
     """Confluence API configuration.
 
     Handles authentication for Confluence Cloud and Server/Data Center:
-    - Cloud: username/API token (basic auth) or OAuth 2.0 (3LO)
+    - Cloud: username/API token (basic auth), browser SSO, or OAuth 2.0 (3LO)
     - Server/DC: personal access token or basic auth
     """
 
     url: str  # Base URL for Confluence
     auth_type: Literal[
-        "basic", "pat", "oauth", "cert", "external"
+        "basic", "pat", "oauth", "cert", "external", "playwright"
     ]  # Authentication type
     username: str | None = None  # Email or username
     api_token: str | None = None  # API token used as password
+    password: str | None = None  # Password used by browser SSO authentication
     personal_token: str | None = None  # Personal access token (Server/DC)
     oauth_config: OAuthConfig | BYOAccessTokenOAuthConfig | None = None
+    playwright_login_url: str | None = None
+    playwright_connection: str | None = None
+    playwright_application: str | None = None
+    playwright_org_id: str | None = None
     ssl_verify: bool = True  # Whether to verify SSL certificates
     spaces_filter: str | None = None  # List of space keys to filter searches
     http_proxy: str | None = None  # HTTP proxy URL
@@ -124,8 +130,37 @@ class ConfluenceConfig:
         # Determine authentication type based on available environment variables
         username = os.getenv("CONFLUENCE_USERNAME")
         api_token = os.getenv("CONFLUENCE_API_TOKEN")
+        password = os.getenv("CONFLUENCE_PASSWORD")
         personal_token = os.getenv("CONFLUENCE_PERSONAL_TOKEN")
         client_cert_env = os.getenv("CONFLUENCE_CLIENT_CERT")
+        requested_auth_type = os.getenv("CONFLUENCE_AUTH_TYPE", "").strip().lower()
+        if requested_auth_type and requested_auth_type not in {
+            "basic",
+            "pat",
+            "oauth",
+            "cert",
+            "external",
+            "playwright",
+        }:
+            error_message = f"Unsupported CONFLUENCE_AUTH_TYPE: {requested_auth_type}"
+            raise ValueError(error_message)
+
+        playwright_login_url = os.getenv(
+            "CONFLUENCE_PLAYWRIGHT_LOGIN_URL",
+            os.getenv("ATLASSIAN_PLAYWRIGHT_LOGIN_URL"),
+        )
+        playwright_connection = os.getenv(
+            "CONFLUENCE_PLAYWRIGHT_CONNECTION",
+            os.getenv("ATLASSIAN_SSO_CONNECTION"),
+        )
+        playwright_application = os.getenv(
+            "CONFLUENCE_PLAYWRIGHT_APPLICATION",
+            os.getenv("ATLASSIAN_SSO_APPLICATION"),
+        )
+        playwright_org_id = os.getenv(
+            "CONFLUENCE_PLAYWRIGHT_ORG_ID",
+            os.getenv("ATLASSIAN_SSO_ORG_ID"),
+        )
 
         # Check for OAuth configuration (pass service info for DC detection)
         oauth_config = get_oauth_config_from_env(
@@ -137,10 +172,24 @@ class ConfluenceConfig:
         is_cloud = is_atlassian_cloud_url(url) if url else False
 
         # External auth passthrough mode — no credentials needed
-        if (
+        if requested_auth_type == "playwright":
+            auth_type = "playwright"
+            if not username or not password:
+                raise ValueError(
+                    "Playwright authentication requires CONFLUENCE_USERNAME and "
+                    "CONFLUENCE_PASSWORD."
+                )
+            build_login_url(
+                login_url=playwright_login_url,
+                connection=playwright_connection,
+                application=playwright_application,
+                org_id=playwright_org_id,
+            )
+        elif (
             is_env_truthy("ATLASSIAN_EXTERNAL_AUTH_ENABLE")
             and not username
             and not api_token
+            and not password
             and not personal_token
             and not oauth_config
         ):
@@ -151,6 +200,8 @@ class ConfluenceConfig:
                 auth_type = "oauth"
             elif username and api_token:
                 auth_type = "basic"
+            elif username and password:
+                auth_type = "playwright"
             else:
                 missing_fields: list[str] = []
                 if not username:
@@ -181,6 +232,8 @@ class ConfluenceConfig:
                 auth_type = "oauth"
             elif username and api_token:
                 auth_type = "basic"
+            elif username and password:
+                auth_type = "playwright"
             elif client_cert_env:
                 auth_type = "cert"
             else:
@@ -234,8 +287,13 @@ class ConfluenceConfig:
             auth_type=auth_type,
             username=username,
             api_token=api_token,
+            password=password,
             personal_token=personal_token,
             oauth_config=oauth_config,
+            playwright_login_url=playwright_login_url,
+            playwright_connection=playwright_connection,
+            playwright_application=playwright_application,
+            playwright_org_id=playwright_org_id,
             ssl_verify=ssl_verify,
             spaces_filter=spaces_filter,
             http_proxy=proxy_settings["http_proxy"],
@@ -306,6 +364,17 @@ class ConfluenceConfig:
             return bool(self.personal_token)
         elif self.auth_type == "basic":
             return bool(self.username and self.api_token)
+        elif self.auth_type == "playwright":
+            try:
+                build_login_url(
+                    login_url=self.playwright_login_url,
+                    connection=self.playwright_connection,
+                    application=self.playwright_application,
+                    org_id=self.playwright_org_id,
+                )
+            except ValueError:
+                return False
+            return bool(self.username and self.password)
         elif self.auth_type == "cert":
             return bool(self.client_cert)
         elif self.auth_type == "external":

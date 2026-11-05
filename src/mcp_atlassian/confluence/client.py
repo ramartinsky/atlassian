@@ -16,6 +16,11 @@ from ..utils.http import (
 )
 from ..utils.logging import get_masked_session_headers, log_config_param, mask_sensitive
 from ..utils.oauth import configure_oauth_session
+from ..utils.playwright_auth import (
+    PlaywrightAuthenticationError,
+    PlaywrightLoginConfig,
+    login_with_playwright,
+)
 from ..utils.proxy import apply_proxy_configuration
 from ..utils.ssl import configure_ssl_verification
 from ..utils.ssrf_adapter import mount_ssrf_pinning
@@ -127,6 +132,33 @@ class ConfluenceClient:
             )
             # Ensure no Authorization header is carried over from defaults
             self.confluence._session.headers.pop("Authorization", None)
+        elif self.config.auth_type == "playwright":
+            if not self.config.username or not self.config.password:
+                raise PlaywrightAuthenticationError(
+                    "Playwright authentication requires a username and password."
+                )
+            session = login_with_playwright(
+                PlaywrightLoginConfig(
+                    username=self.config.username,
+                    password=self.config.password,
+                    service_url=self.config.url,
+                    login_url=self.config.playwright_login_url,
+                    connection=self.config.playwright_connection,
+                    application=self.config.playwright_application,
+                    org_id=self.config.playwright_org_id,
+                    service="confluence",
+                    timeout_seconds=self.config.timeout,
+                )
+            )
+            session.trust_env = False
+            session.headers.pop("Authorization", None)
+            self.confluence = Confluence(
+                url=self.config.url,
+                session=session,
+                cloud=self.config.is_cloud,
+                verify_ssl=self.config.ssl_verify,
+                timeout=self.config.timeout,
+            )
         else:  # basic auth
             logger.debug(
                 f"Initializing Confluence client with Basic auth. "
@@ -150,7 +182,7 @@ class ConfluenceClient:
 
         # Disable trust_env for PAT and OAuth to prevent .netrc from overriding
         # explicit credentials (#860). Basic auth can safely use .netrc.
-        if self.config.auth_type in ("pat", "oauth"):
+        if self.config.auth_type in ("pat", "oauth", "playwright"):
             self.confluence._session.trust_env = False
 
         if self.config.no_proxy and isinstance(self.config.no_proxy, str):
