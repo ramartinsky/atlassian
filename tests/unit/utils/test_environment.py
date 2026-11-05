@@ -165,6 +165,40 @@ class TestGetAvailableServices:
             assert "mTLS client certificate authentication" not in caplog.text
 
     @pytest.mark.parametrize(
+        "base_url",
+        ["https://company.atlassian.net", "https://jira.company.com"],
+    )
+    def test_playwright_password_auth_enables_services(self, base_url, caplog):
+        """Username + password (Playwright SSO) enables both services."""
+        with MockEnvironment.clean_env():
+            os.environ["CONFLUENCE_URL"] = f"{base_url}/wiki"
+            os.environ["CONFLUENCE_USERNAME"] = "user@example.com"
+            os.environ["CONFLUENCE_PASSWORD"] = "secret"
+            os.environ["JIRA_URL"] = base_url
+            os.environ["JIRA_USERNAME"] = "user@example.com"
+            os.environ["JIRA_PASSWORD"] = "secret"
+
+            result = get_available_services()
+
+            _assert_service_availability(
+                result, confluence_expected=True, jira_expected=True
+            )
+            assert "Using Jira Playwright SSO authentication" in caplog.text
+            assert "Using Confluence Playwright SSO authentication" in caplog.text
+
+    def test_playwright_password_without_username_is_not_configured(self):
+        """A password alone does not enable a service."""
+        with MockEnvironment.clean_env():
+            os.environ["JIRA_URL"] = "https://company.atlassian.net"
+            os.environ["JIRA_PASSWORD"] = "secret"
+
+            result = get_available_services()
+
+            _assert_service_availability(
+                result, confluence_expected=False, jira_expected=False
+            )
+
+    @pytest.mark.parametrize(
         "missing_oauth_var",
         [
             "ATLASSIAN_OAUTH_CLIENT_ID",

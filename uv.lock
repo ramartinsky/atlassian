@@ -2352,7 +2352,6 @@ dependencies = [
     { name = "markdown-to-confluence" },
     { name = "markdownify" },
     { name = "mcp" },
-    { name = "playwright" },
     { name = "pydantic" },
     { name = "python-dateutil", version = "3.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "python-dateutil", version = "4.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2372,6 +2371,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+playwright = [
+    { name = "playwright" },
+]
 wpad = [
     { name = "pypac" },
 ]
@@ -2412,7 +2414,7 @@ requires-dist = [
     { name = "markdown-to-confluence", specifier = ">=0.6.0,<0.7.0" },
     { name = "markdownify", specifier = ">=0.11.6" },
     { name = "mcp", specifier = ">=1.27.0,<2.0.0" },
-    { name = "playwright", specifier = ">=1.50.0" },
+    { name = "playwright", marker = "extra == 'playwright'", specifier = ">=1.50.0" },
     { name = "pydantic", specifier = ">=2.10.6,<3.0" },
     { name = "pypac", marker = "extra == 'wpad'", specifier = ">=0.17.2" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
@@ -2429,7 +2431,7 @@ requires-dist = [
     { name = "urllib3", specifier = ">=2.6.3" },
     { name = "uvicorn", specifier = ">=0.27.1" },
 ]
-provides-extras = ["wpad"]
+provides-extras = ["wpad", "playwright"]
 
 [package.metadata.requires-dev]
 dev = [

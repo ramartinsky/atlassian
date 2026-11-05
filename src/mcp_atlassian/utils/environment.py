@@ -19,6 +19,7 @@ def _check_service_auth(
     api_env: str,
     pat_env: str,
     client_cert_env: str | None = None,
+    password_env: str | None = None,
 ) -> bool:
     """Detect whether a single Atlassian service is authenticated.
 
@@ -33,6 +34,8 @@ def _check_service_auth(
         pat_env: Env var name for the Personal Access Token (Server/DC only).
         client_cert_env: Env var name for the client certificate path
             (mTLS, Server/DC only).
+        password_env: Env var name for the password used by Playwright SSO
+            authentication.
 
     Returns:
         ``True`` when a valid auth configuration is detected, ``False`` otherwise.
@@ -87,6 +90,10 @@ def _check_service_auth(
             logger.info("Using %s mTLS client certificate authentication", service_name)
             return True
 
+    if password_env and os.getenv(username_env) and os.getenv(password_env):
+        logger.info("Using %s Playwright SSO authentication", service_name)
+        return True
+
     return False
 
 
@@ -115,6 +122,7 @@ def get_available_services(
             api_env="CONFLUENCE_API_TOKEN",
             pat_env="CONFLUENCE_PERSONAL_TOKEN",
             client_cert_env="CONFLUENCE_CLIENT_CERT",
+            password_env="CONFLUENCE_PASSWORD",  # noqa: S106
         )
 
     if not confluence_is_setup and os.getenv("ATLASSIAN_OAUTH_ENABLE", "").lower() in (
@@ -162,6 +170,7 @@ def get_available_services(
             api_env="JIRA_API_TOKEN",
             pat_env="JIRA_PERSONAL_TOKEN",
             client_cert_env="JIRA_CLIENT_CERT",
+            password_env="JIRA_PASSWORD",  # noqa: S106
         )
 
     if not jira_is_setup and os.getenv("ATLASSIAN_OAUTH_ENABLE", "").lower() in (

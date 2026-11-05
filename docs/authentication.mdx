@@ -126,10 +126,50 @@ Supply the password through a protected environment or secret manager and
 never commit it. The automated flow handles the Atlassian and Microsoft
 email/password screens and declines the "Stay signed in?" prompt. MFA, CAPTCHA,
 device-compliance checks, and other interactive identity-provider steps are not
-supported in headless mode. The Docker image (Alpine) does not include
-Playwright or Chromium; run the server with `uvx` or from source to use this
-method.
+supported in headless mode.
 </Warning>
+
+### Running Playwright SSO in Docker
+
+The default image is Alpine-based, and Playwright does not support Alpine, so
+browser login needs the Debian-based variant built from `Dockerfile.playwright`.
+It includes the `playwright` extra and a headless Chromium (about 1.4 GB):
+
+```bash
+docker build -f Dockerfile.playwright -t mcp-atlassian:playwright .
+```
+
+Mount your `.env` file and pass it with the server's `--env-file` option:
+
+```bash
+docker run --rm -i \
+  -v /path/to/.env:/app/.env:ro \
+  mcp-atlassian:playwright --env-file /app/.env
+```
+
+IDE configuration:
+
+```json
+{
+  "mcpServers": {
+    "mcp-atlassian": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/path/to/.env:/app/.env:ro",
+        "mcp-atlassian:playwright", "--env-file", "/app/.env"
+      ]
+    }
+  }
+}
+```
+
+<Note>
+Prefer the mounted file over Docker's own `docker run --env-file`. Docker does
+not remove quotes, so `JIRA_PASSWORD='secret'` would reach the server with the
+quote characters included. If you do use Docker's `--env-file`, or `-e`, write
+the password without quotes.
+</Note>
 
 ## Personal Access Token (Server/Data Center)
 

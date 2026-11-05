@@ -1,0 +1,51 @@
+# Variant image with Playwright + Chromium for email/password SSO authentication
+# (JIRA_AUTH_TYPE=playwright / CONFLUENCE_AUTH_TYPE=playwright).
+# Playwright does not support Alpine (musl), so this image is Debian-based and
+# considerably larger than the default image built from ./Dockerfile.
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS uv
+
+WORKDIR /app
+
+ENV UV_COMPILE_BYTECODE=1
+ENV UV_LINK_MODE=copy
+
+ARG VERSION
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --frozen --extra wpad --extra playwright \
+        --no-install-project --no-dev --no-editable
+
+COPY . /app
+RUN if [ -n "$VERSION" ] && echo "$VERSION" | grep -qE '^[0-9]'; then \
+      sed -i "s/fallback-version = \"0.0.0\"/fallback-version = \"$VERSION\"/" pyproject.toml; \
+    fi
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --frozen --extra wpad --extra playwright --no-dev --no-editable
+
+RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
+    find /app/.venv -name '*.pyc' -delete && \
+    find /app/.venv -name '*.pyo' -delete
+
+# Final stage
+FROM python:3.13-slim-bookworm
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+COPY --from=uv /app/.venv /app/.venv
+
+# Install Chromium and its system libraries as root, then drop privileges.
+# Only the headless shell is needed because the login runs headless.
+RUN playwright install --with-deps --only-shell chromium && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd --create-home --home-dir /home/app --shell /bin/sh app && \
+    chmod -R a+rX /ms-playwright
+
+WORKDIR /app
+USER app
+
+ENTRYPOINT ["mcp-atlassian"]

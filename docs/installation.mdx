@@ -98,6 +98,10 @@ docker run --rm -i \
 
 See [Configuration](/docs/configuration) for more Docker options including environment files.
 
+For email/password SSO login (`*_AUTH_TYPE=playwright`), build the Debian-based
+image from `Dockerfile.playwright`, which includes Chromium. See
+[Running Playwright SSO in Docker](/docs/authentication#running-playwright-sso-in-docker).
+
 ## pip
 
 Install directly with pip for development or when you need the package in your Python environment:

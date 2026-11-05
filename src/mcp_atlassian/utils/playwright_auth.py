@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
@@ -173,8 +175,21 @@ def login_with_playwright(config: PlaywrightLoginConfig) -> requests.Session:
     """Log in through a browser and return a requests session with its cookies.
 
     Playwright is imported lazily so installations using token, PAT, OAuth, or
-    external authentication do not need a browser runtime.
+    external authentication do not need a browser runtime. Playwright's sync API
+    refuses to run inside an asyncio event loop (as in the MCP server), so the
+    login runs in a worker thread when called from one.
     """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return _login_with_playwright(config)
+    with ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="playwright-login"
+    ) as executor:
+        return executor.submit(_login_with_playwright, config).result()
+
+
+def _login_with_playwright(config: PlaywrightLoginConfig) -> requests.Session:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError

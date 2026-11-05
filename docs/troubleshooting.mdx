@@ -202,6 +202,11 @@ Header values containing sensitive information are automatically masked in logs.
     | `login.microsoftonline.com/.../login` — "Sign in to your account" | Wrong password, or MFA/CAPTCHA required | Verify `*_PASSWORD` (single-quote it in `.env` if it has special characters); interactive MFA isn't supported |
     | `id.atlassian.com/login` with a "doesn't have access" message | Account has no product access on that site | Ask an admin to grant access, or check `JIRA_URL` / `CONFLUENCE_URL` |
     | `requires the Atlassian SAML login parameter(s)` | Missing `connection`, `application`, or `orgId` | Set `ATLASSIAN_SSO_*` or `*_PLAYWRIGHT_LOGIN_URL` |
+    | `requires the 'playwright' package` when running in Docker | Using the default Alpine image | Build and run `Dockerfile.playwright` |
+
+    In Docker, a correct password that is rejected usually means the quotes were
+    kept: Docker's `--env-file` does not strip them. Mount the file and use the
+    server's own `--env-file` option instead.
 
     Also check that `JIRA_URL` is the site root (`https://your-company.atlassian.net`)
     and not a UI path such as `/jira/`. Increase `JIRA_TIMEOUT` / `CONFLUENCE_TIMEOUT`

@@ -1,5 +1,7 @@
 """Tests for browser-backed Atlassian authentication helpers."""
 
+import asyncio
+import threading
 from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
@@ -270,3 +272,27 @@ def test_get_playwright_session_separates_credentials() -> None:
         get_playwright_session(_login_config("second-password"))
 
     assert login.call_count == 2
+
+
+def test_login_with_playwright_runs_in_worker_thread_inside_event_loop() -> None:
+    config = _login_config()
+    caller_thread = threading.get_ident()
+    login_threads: list[int] = []
+
+    def fake_login(_: PlaywrightLoginConfig) -> Session:
+        login_threads.append(threading.get_ident())
+        return _browser_session("token")
+
+    async def call_from_event_loop() -> Session:
+        return login_with_playwright(config)
+
+    with patch(
+        "mcp_atlassian.utils.playwright_auth._login_with_playwright",
+        side_effect=fake_login,
+    ):
+        session = asyncio.run(call_from_event_loop())
+        login_with_playwright(config)
+
+    assert session.cookies.get("cloud.session.token") == "token"
+    assert login_threads[0] != caller_thread
+    assert login_threads[1] == caller_thread
