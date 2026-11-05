@@ -31,6 +31,30 @@ def test_from_env_basic_auth():
         assert config.ssl_verify is True
 
 
+def test_from_env_playwright_auth_maps_saml_settings():
+    with patch.dict(
+        os.environ,
+        {
+            "JIRA_URL": "https://test.atlassian.net",
+            "JIRA_AUTH_TYPE": "playwright",
+            "JIRA_USERNAME": "user@example.com",
+            "JIRA_PASSWORD": "password",
+            "JIRA_PLAYWRIGHT_CONNECTION": "connection-id",
+            "JIRA_PLAYWRIGHT_APPLICATION": "application-id",
+            "JIRA_PLAYWRIGHT_ORG_ID": "org-id",
+        },
+        clear=True,
+    ):
+        config = JiraConfig.from_env()
+
+    assert config.auth_type == "playwright"
+    assert config.password == "password"
+    assert config.playwright_connection == "connection-id"
+    assert config.playwright_application == "application-id"
+    assert config.playwright_org_id == "org-id"
+    assert config.is_auth_configured() is True
+
+
 def test_from_env_token_auth():
     """Test that from_env correctly loads token auth configuration."""
     with patch.dict(

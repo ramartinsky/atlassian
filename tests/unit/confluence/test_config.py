@@ -27,6 +27,30 @@ def test_from_env_success():
         assert config.api_token == "test_token"
 
 
+def test_from_env_playwright_auth_maps_saml_settings():
+    with patch.dict(
+        os.environ,
+        {
+            "CONFLUENCE_URL": "https://test.atlassian.net/wiki",
+            "CONFLUENCE_AUTH_TYPE": "playwright",
+            "CONFLUENCE_USERNAME": "user@example.com",
+            "CONFLUENCE_PASSWORD": "password",
+            "CONFLUENCE_PLAYWRIGHT_CONNECTION": "connection-id",
+            "CONFLUENCE_PLAYWRIGHT_APPLICATION": "application-id",
+            "CONFLUENCE_PLAYWRIGHT_ORG_ID": "org-id",
+        },
+        clear=True,
+    ):
+        config = ConfluenceConfig.from_env()
+
+    assert config.auth_type == "playwright"
+    assert config.password == "password"
+    assert config.playwright_connection == "connection-id"
+    assert config.playwright_application == "application-id"
+    assert config.playwright_org_id == "org-id"
+    assert config.is_auth_configured() is True
+
+
 def test_from_env_attachment_download_use_v1_tristate():
     """unset/empty -> None (auto); only an explicit value forces True/False."""
     base = {
