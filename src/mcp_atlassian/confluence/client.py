@@ -19,7 +19,7 @@ from ..utils.oauth import configure_oauth_session
 from ..utils.playwright_auth import (
     PlaywrightAuthenticationError,
     PlaywrightLoginConfig,
-    login_with_playwright,
+    get_playwright_session,
 )
 from ..utils.proxy import apply_proxy_configuration
 from ..utils.ssl import configure_ssl_verification
@@ -137,7 +137,7 @@ class ConfluenceClient:
                 raise PlaywrightAuthenticationError(
                     "Playwright authentication requires a username and password."
                 )
-            session = login_with_playwright(
+            session = get_playwright_session(
                 PlaywrightLoginConfig(
                     username=self.config.username,
                     password=self.config.password,

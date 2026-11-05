@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -14,6 +16,10 @@ logger = logging.getLogger("mcp-atlassian.playwright-auth")
 
 DEFAULT_LOGIN_URL = "https://id.atlassian.com/login/saml/start"
 ServiceName = Literal["jira", "confluence"]
+_SESSION_CHECK_TIMEOUT_SECONDS = 15
+
+_session_cache: dict[tuple[str, ...], requests.cookies.RequestsCookieJar] = {}
+_session_cache_lock = threading.Lock()
 
 
 class PlaywrightAuthenticationError(RuntimeError):
@@ -84,6 +90,85 @@ def build_login_url(
     )
 
 
+def get_playwright_session(config: PlaywrightLoginConfig) -> requests.Session:
+    """Return an authenticated session, reusing cached browser cookies when valid.
+
+    The server creates a new client for every tool call, so the browser login is
+    performed once per process and credential set. Cached cookies are checked
+    against the service's current-user endpoint and a new browser login runs
+    only when they are no longer accepted.
+    """
+    cache_key = _session_cache_key(config)
+    with _session_cache_lock:
+        cached_cookies = _session_cache.get(cache_key)
+        if cached_cookies is not None:
+            session = _session_from_cookies(cached_cookies)
+            if _is_session_valid(session, config):
+                logger.debug(
+                    "Reusing cached Playwright session for %s.", config.service
+                )
+                return session
+            logger.info(
+                "Cached Playwright session for %s expired; logging in again.",
+                config.service,
+            )
+            _session_cache.pop(cache_key, None)
+
+        session = login_with_playwright(config)
+        _session_cache[cache_key] = session.cookies.copy()
+        return session
+
+
+def clear_playwright_session_cache() -> None:
+    """Forget all cached Playwright browser sessions."""
+    with _session_cache_lock:
+        _session_cache.clear()
+
+
+def _session_cache_key(config: PlaywrightLoginConfig) -> tuple[str, ...]:
+    password_digest = hashlib.sha256(config.password.encode("utf-8")).hexdigest()
+    login_url = build_login_url(
+        login_url=config.login_url,
+        connection=config.connection,
+        application=config.application,
+        org_id=config.org_id,
+    )
+    return (
+        config.service,
+        config.service_url.rstrip("/"),
+        config.username,
+        password_digest,
+        login_url,
+    )
+
+
+def _session_from_cookies(
+    cookies: requests.cookies.RequestsCookieJar,
+) -> requests.Session:
+    session = requests.Session()
+    session.cookies.update(cookies.copy())
+    return session
+
+
+def _is_session_valid(session: requests.Session, config: PlaywrightLoginConfig) -> bool:
+    session_url = _session_check_url(config.service, config.service_url)
+    try:
+        response = session.get(
+            session_url,
+            timeout=_SESSION_CHECK_TIMEOUT_SECONDS,
+            allow_redirects=False,
+        )
+    except requests.RequestException as exc:
+        logger.debug("Cached Playwright session check failed: %s", exc)
+        return False
+    return response.status_code == 200
+
+
+def _session_check_url(service: ServiceName, service_url: str) -> str:
+    endpoint = "/rest/api/3/myself" if service == "jira" else "/rest/api/user/current"
+    return f"{service_url.rstrip('/')}{endpoint}"
+
+
 def login_with_playwright(config: PlaywrightLoginConfig) -> requests.Session:
     """Log in through a browser and return a requests session with its cookies.
 
@@ -97,8 +182,8 @@ def login_with_playwright(config: PlaywrightLoginConfig) -> requests.Session:
     except ImportError as exc:
         raise PlaywrightAuthenticationError(
             "Playwright authentication requires the 'playwright' package. "
-            "Install the project with its Playwright dependency and run "
-            "`python -m playwright install chromium`."
+            "Install the 'playwright' extra (mcp-atlassian[playwright]) and run "
+            "`playwright install chromium`."
         ) from exc
 
     login_url = build_login_url(
@@ -253,8 +338,7 @@ def _wait_for_session(
     transient_errors: tuple[type[BaseException], ...],
 ) -> None:
     deadline = time.monotonic() + timeout_seconds
-    endpoint = "/rest/api/3/myself" if service == "jira" else "/rest/api/user/current"
-    session_url = f"{service_url.rstrip('/')}{endpoint}"
+    session_url = _session_check_url(service, service_url)
 
     while time.monotonic() < deadline:
         _decline_stay_signed_in(page, timeout_ms=500, timeout_error=timeout_error)

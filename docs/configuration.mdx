@@ -142,7 +142,7 @@ For mTLS, replace the personal token variables with client certificate variables
 | `JIRA_URL` | Jira instance URL |
 | `JIRA_USERNAME` | Jira username (email for Cloud) |
 | `JIRA_API_TOKEN` | Jira API token (Cloud) |
-| `JIRA_AUTH_TYPE` | Set to `playwright` for browser-based SSO authentication |
+| `JIRA_AUTH_TYPE` | Set to `playwright` to force browser-based SSO authentication (requires the `playwright` extra); otherwise auto-detected |
 | `JIRA_PASSWORD` | Jira password used by Playwright SSO authentication |
 | `JIRA_PLAYWRIGHT_LOGIN_URL` | Complete Atlassian SAML login URL (optional when the SAML parameters are set separately) |
 | `JIRA_PLAYWRIGHT_CONNECTION` | SAML `connection` query parameter |
@@ -156,7 +156,7 @@ For mTLS, replace the personal token variables with client certificate variables
 | `CONFLUENCE_URL` | Confluence instance URL |
 | `CONFLUENCE_USERNAME` | Confluence username (email for Cloud) |
 | `CONFLUENCE_API_TOKEN` | Confluence API token (Cloud) |
-| `CONFLUENCE_AUTH_TYPE` | Set to `playwright` for browser-based SSO authentication |
+| `CONFLUENCE_AUTH_TYPE` | Set to `playwright` to force browser-based SSO authentication (requires the `playwright` extra); otherwise auto-detected |
 | `CONFLUENCE_PASSWORD` | Confluence password used by Playwright SSO authentication |
 | `CONFLUENCE_PLAYWRIGHT_LOGIN_URL` | Complete Atlassian SAML login URL (optional when the SAML parameters are set separately) |
 | `CONFLUENCE_PLAYWRIGHT_CONNECTION` | SAML `connection` query parameter |
@@ -167,6 +167,10 @@ For mTLS, replace the personal token variables with client certificate variables
 | `CONFLUENCE_CLIENT_KEY` | Confluence mTLS private key PEM path when the certificate is separate (Server/DC) |
 | `CONFLUENCE_CLIENT_KEY_PASSWORD` | Not supported for encrypted private keys; decrypt the key before use |
 | `CONFLUENCE_SSL_VERIFY` | SSL verification (`true`/`false`) |
+| `ATLASSIAN_SSO_CONNECTION` | Shared SAML `connection` parameter for Jira and Confluence Playwright SSO |
+| `ATLASSIAN_SSO_APPLICATION` | Shared SAML `application` parameter for Jira and Confluence Playwright SSO |
+| `ATLASSIAN_SSO_ORG_ID` | Shared SAML `orgId` parameter for Jira and Confluence Playwright SSO |
+| `ATLASSIAN_PLAYWRIGHT_LOGIN_URL` | Shared complete SAML start URL (alternative to the three parameters) |
 | `MCP_ATLASSIAN_USE_SYSTEM_TRUSTSTORE` | Use OS native trust store (`true`/`false`, default: `true`) |
 | `MCP_ATLASSIAN_VALIDATION_CACHE_TTL` | Multi-user credential validation cache lifetime in seconds (`0` disables, default: `300`) |
 | `MCP_ATLASSIAN_VALIDATION_CACHE_MAXSIZE` | Maximum cached multi-user credential validations (default: `100`) |

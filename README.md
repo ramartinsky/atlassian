@@ -25,6 +25,8 @@ https://github.com/user-attachments/assets/7fe9c488-ad0c-4876-9b54-120b666bb785
 Go to https://id.atlassian.com/manage-profile/security/api-tokens and create a token.
 
 > For Server/Data Center, use a Personal Access Token instead. See [Authentication](https://mcp-atlassian.soomiles.com/docs/authentication).
+>
+> If your organization enforces SAML SSO and API tokens aren't available, install `mcp-atlassian[playwright]` and sign in with email and password through a headless browser. See [Email and Password through Playwright (SSO)](https://mcp-atlassian.soomiles.com/docs/authentication#email-and-password-through-playwright-sso).
 
 ### 2. Configure Your IDE
 
@@ -89,7 +91,7 @@ Documentation is also available in [llms.txt format](https://llmstxt.org/), whic
 | Topic | Description |
 |-------|-------------|
 | [Installation](https://mcp-atlassian.soomiles.com/docs/installation) | uvx, Docker, pip, from source |
-| [Authentication](https://mcp-atlassian.soomiles.com/docs/authentication) | API tokens, PAT, OAuth 2.0 |
+| [Authentication](https://mcp-atlassian.soomiles.com/docs/authentication) | API tokens, Playwright SSO, PAT, OAuth 2.0 |
 | [Configuration](https://mcp-atlassian.soomiles.com/docs/configuration) | IDE setup, environment variables |
 | [HTTP Transport](https://mcp-atlassian.soomiles.com/docs/http-transport) | SSE, streamable-http, multi-user |
 | [Tools Reference](https://mcp-atlassian.soomiles.com/docs/tools-reference) | All Jira & Confluence tools |

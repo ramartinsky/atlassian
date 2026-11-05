@@ -145,21 +145,25 @@ class ConfluenceConfig:
             error_message = f"Unsupported CONFLUENCE_AUTH_TYPE: {requested_auth_type}"
             raise ValueError(error_message)
 
-        playwright_login_url = os.getenv(
-            "CONFLUENCE_PLAYWRIGHT_LOGIN_URL",
-            os.getenv("ATLASSIAN_PLAYWRIGHT_LOGIN_URL"),
+        playwright_login_url = (
+            os.getenv("CONFLUENCE_PLAYWRIGHT_LOGIN_URL")
+            or os.getenv("ATLASSIAN_PLAYWRIGHT_LOGIN_URL")
+            or None
         )
-        playwright_connection = os.getenv(
-            "CONFLUENCE_PLAYWRIGHT_CONNECTION",
-            os.getenv("ATLASSIAN_SSO_CONNECTION"),
+        playwright_connection = (
+            os.getenv("CONFLUENCE_PLAYWRIGHT_CONNECTION")
+            or os.getenv("ATLASSIAN_SSO_CONNECTION")
+            or None
         )
-        playwright_application = os.getenv(
-            "CONFLUENCE_PLAYWRIGHT_APPLICATION",
-            os.getenv("ATLASSIAN_SSO_APPLICATION"),
+        playwright_application = (
+            os.getenv("CONFLUENCE_PLAYWRIGHT_APPLICATION")
+            or os.getenv("ATLASSIAN_SSO_APPLICATION")
+            or None
         )
-        playwright_org_id = os.getenv(
-            "CONFLUENCE_PLAYWRIGHT_ORG_ID",
-            os.getenv("ATLASSIAN_SSO_ORG_ID"),
+        playwright_org_id = (
+            os.getenv("CONFLUENCE_PLAYWRIGHT_ORG_ID")
+            or os.getenv("ATLASSIAN_SSO_ORG_ID")
+            or None
         )
 
         # Check for OAuth configuration (pass service info for DC detection)

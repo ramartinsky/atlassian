@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "Configure authentication for MCP Atlassian — API tokens, PATs, mTLS, and OAuth 2.0"
+description: "Configure authentication for MCP Atlassian — API tokens, Playwright SSO, PATs, mTLS, and OAuth 2.0"
 ---
 
 MCP Atlassian supports five authentication methods depending on your Atlassian deployment type.
@@ -34,48 +34,101 @@ CONFLUENCE_API_TOKEN=your_api_token
 
 ## Email and Password through Playwright (SSO)
 
-Some Atlassian organizations require an interactive SAML login instead of an
-API token. Set the authentication type to `playwright`; MCP Atlassian opens a
-headless Chromium session, completes the email/password flow, and reuses the
-resulting browser cookies for Jira or Confluence API requests.
+Use this method when your Atlassian organization enforces SAML single sign-on
+(for example Microsoft Entra ID) and API tokens are not available to you. Set
+the authentication type to `playwright`: MCP Atlassian opens a headless
+Chromium browser, signs in with your email and password, and reuses the
+resulting browser cookies for Jira and Confluence API requests.
 
-```bash
-JIRA_URL=https://your-company.atlassian.net
-JIRA_AUTH_TYPE=playwright
-JIRA_USERNAME=your.email@company.com
-JIRA_PASSWORD=your_password
-JIRA_PLAYWRIGHT_CONNECTION=your_saml_connection
-JIRA_PLAYWRIGHT_APPLICATION=your_saml_application
-JIRA_PLAYWRIGHT_ORG_ID=your_atlassian_org_id
-```
+<Steps>
+  <Step title="Install the Playwright extra and Chromium">
+    Playwright is an optional dependency. Install it together with the browser
+    runtime:
 
-Use the equivalent `CONFLUENCE_*` variables for Confluence. The
-`connection`, `application`, and `orgId` values correspond to the query
-parameters in the SAML start URL, for example:
+    ```bash
+    # uvx
+    uvx --from "mcp-atlassian[playwright]" playwright install --with-deps chromium
 
-```
-https://id.atlassian.com/login/saml/start?connection=...&application=...&orgId=...
-```
+    # From a source checkout
+    uv sync --extra playwright
+    uv run playwright install --with-deps chromium
+    ```
 
-Alternatively, provide the complete URL with
-`JIRA_PLAYWRIGHT_LOGIN_URL` or `CONFLUENCE_PLAYWRIGHT_LOGIN_URL`; the three
-parameters are also accepted from the global
-`ATLASSIAN_SSO_CONNECTION`, `ATLASSIAN_SSO_APPLICATION`, and
-`ATLASSIAN_SSO_ORG_ID` variables. Service-specific values take precedence.
+    When running with `uvx`, start the server with
+    `uvx --from "mcp-atlassian[playwright]" mcp-atlassian` so the extra is
+    available at runtime. On Linux, `--with-deps` installs system libraries
+    and may prompt for `sudo`; omit it if they are already present.
+  </Step>
+  <Step title="Find your SAML login parameters">
+    Start an SSO login for your organization in a browser (for example from
+    the Atlassian login page) and copy the
+    `https://id.atlassian.com/login/saml/start?...` URL from the address bar
+    before it redirects to your identity provider:
 
-Install the browser runtime before starting the server:
+    ```
+    https://id.atlassian.com/login/saml/start?connection=saml-1234...&application=admin--confluence-...&orgId=abcd-...
+    ```
 
-```bash
-python -m playwright install chromium
-python -m playwright install-deps chromium
-```
+    The `connection`, `application`, and `orgId` query parameters are the
+    three values MCP Atlassian needs.
+  </Step>
+  <Step title="Configure the environment">
+    Set the SAML parameters once and enable `playwright` for each product:
+
+    ```bash
+    # Shared SAML parameters (apply to Jira and Confluence)
+    ATLASSIAN_SSO_CONNECTION=saml-1234...
+    ATLASSIAN_SSO_APPLICATION=admin--confluence-...
+    ATLASSIAN_SSO_ORG_ID=abcd-...
+
+    JIRA_URL=https://your-company.atlassian.net
+    JIRA_AUTH_TYPE=playwright
+    JIRA_USERNAME=your.email@company.com
+    JIRA_PASSWORD='your_password'
+
+    CONFLUENCE_URL=https://your-company.atlassian.net/wiki
+    CONFLUENCE_AUTH_TYPE=playwright
+    CONFLUENCE_USERNAME=your.email@company.com
+    CONFLUENCE_PASSWORD='your_password'
+    ```
+  </Step>
+</Steps>
+
+**Configuration notes:**
+
+- `JIRA_URL` must be the site root (`https://your-company.atlassian.net`), not
+  a UI path such as `/jira/`. `CONFLUENCE_URL` ends in `/wiki`.
+- In `.env` files, wrap passwords containing `\`, `#`, `;`, `|`, `$`, or quotes
+  in single quotes so they are read literally.
+- Instead of the three parameters, you can set the complete start URL with
+  `ATLASSIAN_PLAYWRIGHT_LOGIN_URL`, `JIRA_PLAYWRIGHT_LOGIN_URL`, or
+  `CONFLUENCE_PLAYWRIGHT_LOGIN_URL`.
+- Per-service overrides `JIRA_PLAYWRIGHT_CONNECTION`,
+  `JIRA_PLAYWRIGHT_APPLICATION`, `JIRA_PLAYWRIGHT_ORG_ID` (and the
+  `CONFLUENCE_PLAYWRIGHT_*` equivalents) take precedence over the global
+  `ATLASSIAN_SSO_*` values. A single SAML application usually works for both
+  products because the SSO session covers the whole site.
+- `JIRA_AUTH_TYPE` can be omitted: when `*_USERNAME` and `*_PASSWORD` are set
+  without an API token or OAuth configuration, `playwright` is selected
+  automatically. OAuth and API-token authentication take precedence.
+- Each phase of the browser login (signing in, then waiting for the site
+  session) is limited by `JIRA_TIMEOUT` / `CONFLUENCE_TIMEOUT` (default 75
+  seconds).
+
+**Session behavior:** the first tool call for each product performs the browser
+login, which typically takes 10–30 seconds. The cookies are cached in memory
+for the lifetime of the server process and checked against the current-user
+endpoint before reuse; MCP Atlassian logs in again automatically when they
+expire. Nothing is written to disk.
 
 <Warning>
-Browser authentication stores the authenticated browser cookies in the
-in-memory API session. Passwords should be supplied through a protected
-environment or secret manager, never committed to a configuration file. MFA,
-CAPTCHA, and identity-provider flows that require user interaction beyond the
-supported email/password screens are not supported in headless mode.
+Supply the password through a protected environment or secret manager and
+never commit it. The automated flow handles the Atlassian and Microsoft
+email/password screens and declines the "Stay signed in?" prompt. MFA, CAPTCHA,
+device-compliance checks, and other interactive identity-provider steps are not
+supported in headless mode. The Docker image (Alpine) does not include
+Playwright or Chromium; run the server with `uvx` or from source to use this
+method.
 </Warning>
 
 ## Personal Access Token (Server/Data Center)

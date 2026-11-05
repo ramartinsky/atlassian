@@ -190,6 +190,23 @@ Header values containing sensitive information are automatically masked in logs.
     2. Ensure your app has `offline_access` scope for refresh tokens
     3. Check if the OAuth app is still active in your Atlassian developer console
   </Accordion>
+
+  <Accordion title="Playwright SSO login fails or times out">
+    The error message includes the last page reached (URL without query string and
+    page title), which identifies the failing step:
+
+    | Error or last page | Likely cause | Fix |
+    |-----------|--------------|-----|
+    | `requires the 'playwright' package` | Optional extra not installed | Install `mcp-atlassian[playwright]`, then `playwright install --with-deps chromium` |
+    | `Executable doesn't exist` | Chromium not downloaded | Run `playwright install chromium` in the same environment |
+    | `login.microsoftonline.com/.../login` — "Sign in to your account" | Wrong password, or MFA/CAPTCHA required | Verify `*_PASSWORD` (single-quote it in `.env` if it has special characters); interactive MFA isn't supported |
+    | `id.atlassian.com/login` with a "doesn't have access" message | Account has no product access on that site | Ask an admin to grant access, or check `JIRA_URL` / `CONFLUENCE_URL` |
+    | `requires the Atlassian SAML login parameter(s)` | Missing `connection`, `application`, or `orgId` | Set `ATLASSIAN_SSO_*` or `*_PLAYWRIGHT_LOGIN_URL` |
+
+    Also check that `JIRA_URL` is the site root (`https://your-company.atlassian.net`)
+    and not a UI path such as `/jira/`. Increase `JIRA_TIMEOUT` / `CONFLUENCE_TIMEOUT`
+    for slow identity providers.
+  </Accordion>
 </AccordionGroup>
 
 ## Field and Data Errors

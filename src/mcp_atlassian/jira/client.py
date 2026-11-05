@@ -26,7 +26,7 @@ from mcp_atlassian.utils.oauth import configure_oauth_session
 from mcp_atlassian.utils.playwright_auth import (
     PlaywrightAuthenticationError,
     PlaywrightLoginConfig,
-    login_with_playwright,
+    get_playwright_session,
 )
 from mcp_atlassian.utils.proxy import apply_proxy_configuration
 from mcp_atlassian.utils.ssl import configure_ssl_verification
@@ -152,7 +152,7 @@ class JiraClient:
                 raise PlaywrightAuthenticationError(
                     "Playwright authentication requires a username and password."
                 )
-            session = login_with_playwright(
+            session = get_playwright_session(
                 PlaywrightLoginConfig(
                     username=self.config.username,
                     password=self.config.password,
