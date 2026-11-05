@@ -142,6 +142,12 @@ For mTLS, replace the personal token variables with client certificate variables
 | `JIRA_URL` | Jira instance URL |
 | `JIRA_USERNAME` | Jira username (email for Cloud) |
 | `JIRA_API_TOKEN` | Jira API token (Cloud) |
+| `JIRA_AUTH_TYPE` | Set to `playwright` for browser-based SSO authentication |
+| `JIRA_PASSWORD` | Jira password used by Playwright SSO authentication |
+| `JIRA_PLAYWRIGHT_LOGIN_URL` | Complete Atlassian SAML login URL (optional when the SAML parameters are set separately) |
+| `JIRA_PLAYWRIGHT_CONNECTION` | SAML `connection` query parameter |
+| `JIRA_PLAYWRIGHT_APPLICATION` | SAML `application` query parameter |
+| `JIRA_PLAYWRIGHT_ORG_ID` | SAML `orgId` query parameter |
 | `JIRA_PERSONAL_TOKEN` | Jira Personal Access Token (Server/DC) |
 | `JIRA_CLIENT_CERT` | Jira mTLS client certificate PEM path (Server/DC), combined or certificate-only |
 | `JIRA_CLIENT_KEY` | Jira mTLS private key PEM path when the certificate is separate (Server/DC) |
@@ -150,6 +156,12 @@ For mTLS, replace the personal token variables with client certificate variables
 | `CONFLUENCE_URL` | Confluence instance URL |
 | `CONFLUENCE_USERNAME` | Confluence username (email for Cloud) |
 | `CONFLUENCE_API_TOKEN` | Confluence API token (Cloud) |
+| `CONFLUENCE_AUTH_TYPE` | Set to `playwright` for browser-based SSO authentication |
+| `CONFLUENCE_PASSWORD` | Confluence password used by Playwright SSO authentication |
+| `CONFLUENCE_PLAYWRIGHT_LOGIN_URL` | Complete Atlassian SAML login URL (optional when the SAML parameters are set separately) |
+| `CONFLUENCE_PLAYWRIGHT_CONNECTION` | SAML `connection` query parameter |
+| `CONFLUENCE_PLAYWRIGHT_APPLICATION` | SAML `application` query parameter |
+| `CONFLUENCE_PLAYWRIGHT_ORG_ID` | SAML `orgId` query parameter |
 | `CONFLUENCE_PERSONAL_TOKEN` | Confluence Personal Access Token (Server/DC) |
 | `CONFLUENCE_CLIENT_CERT` | Confluence mTLS client certificate PEM path (Server/DC), combined or certificate-only |
 | `CONFLUENCE_CLIENT_KEY` | Confluence mTLS private key PEM path when the certificate is separate (Server/DC) |

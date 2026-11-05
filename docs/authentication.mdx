@@ -3,7 +3,7 @@ title: "Authentication"
 description: "Configure authentication for MCP Atlassian — API tokens, PATs, mTLS, and OAuth 2.0"
 ---
 
-MCP Atlassian supports four authentication methods depending on your Atlassian deployment type.
+MCP Atlassian supports five authentication methods depending on your Atlassian deployment type.
 
 ## API Token (Cloud) - Recommended
 
@@ -31,6 +31,52 @@ CONFLUENCE_URL=https://your-company.atlassian.net/wiki
 CONFLUENCE_USERNAME=your.email@company.com
 CONFLUENCE_API_TOKEN=your_api_token
 ```
+
+## Email and Password through Playwright (SSO)
+
+Some Atlassian organizations require an interactive SAML login instead of an
+API token. Set the authentication type to `playwright`; MCP Atlassian opens a
+headless Chromium session, completes the email/password flow, and reuses the
+resulting browser cookies for Jira or Confluence API requests.
+
+```bash
+JIRA_URL=https://your-company.atlassian.net
+JIRA_AUTH_TYPE=playwright
+JIRA_USERNAME=your.email@company.com
+JIRA_PASSWORD=your_password
+JIRA_PLAYWRIGHT_CONNECTION=your_saml_connection
+JIRA_PLAYWRIGHT_APPLICATION=your_saml_application
+JIRA_PLAYWRIGHT_ORG_ID=your_atlassian_org_id
+```
+
+Use the equivalent `CONFLUENCE_*` variables for Confluence. The
+`connection`, `application`, and `orgId` values correspond to the query
+parameters in the SAML start URL, for example:
+
+```
+https://id.atlassian.com/login/saml/start?connection=...&application=...&orgId=...
+```
+
+Alternatively, provide the complete URL with
+`JIRA_PLAYWRIGHT_LOGIN_URL` or `CONFLUENCE_PLAYWRIGHT_LOGIN_URL`; the three
+parameters are also accepted from the global
+`ATLASSIAN_SSO_CONNECTION`, `ATLASSIAN_SSO_APPLICATION`, and
+`ATLASSIAN_SSO_ORG_ID` variables. Service-specific values take precedence.
+
+Install the browser runtime before starting the server:
+
+```bash
+python -m playwright install chromium
+python -m playwright install-deps chromium
+```
+
+<Warning>
+Browser authentication stores the authenticated browser cookies in the
+in-memory API session. Passwords should be supplied through a protected
+environment or secret manager, never committed to a configuration file. MFA,
+CAPTCHA, and identity-provider flows that require user interaction beyond the
+supported email/password screens are not supported in headless mode.
+</Warning>
 
 ## Personal Access Token (Server/Data Center)
 
